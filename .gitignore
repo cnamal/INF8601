@@ -31,3 +31,27 @@
 # Debug files
 *.dSYM/
 *.su
+
+#autogen
+Makefile.in
+aclocal.m4
+autom4te.cache/
+compile
+config.guess
+config.h.in
+config.sub
+configure
+depcomp
+install-sh
+ltmain.sh
+missing
+test-driver
+
+#configure
+Makefile
+.deps
+config.h
+config.log
+config.status
+libtool
+stamp-h1
