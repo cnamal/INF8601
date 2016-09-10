@@ -418,3 +418,8 @@ void limits_invert(limits_t *limites)
 	limites->minimums.x = -limites->maximums.y;
 	limites->maximums.y = nouveauMaxY;
 }
+
+bool equal_orientation(const xy_t o1,const xy_t o2)
+{
+    return o1.x==o2.x && o1.y ==o2.y;
+}

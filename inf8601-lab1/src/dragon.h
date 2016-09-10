@@ -12,6 +12,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <inttypes.h>
+#include <stdbool.h>
 #include "color.h"
 
 /**
@@ -95,5 +96,5 @@ void init_canvas(int start, int end, char *canvas, char value);
 void scale_dragon(int start, int end, struct rgb *image, int image_width, int image_height,
         char *dragon, int dragon_width, int dragon_height, struct palette *palette);
 int dragon_draw_raw(uint64_t start, uint64_t end, char *dragon, int width, int height, limits_t limits, char id);
-
+bool equal_orientation(const xy_t o1,const xy_t o2);
 #endif /* DRAGON_H_ */
