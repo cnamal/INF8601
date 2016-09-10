@@ -55,3 +55,7 @@ config.log
 config.status
 libtool
 stamp-h1
+
+#CLion
+.idea/
+CMakeLists.txt
