@@ -125,10 +125,10 @@ void rotate(bool direction,piece_t* piece, xy_t *initial){
     //left direction
     if(direction)
     {
-        rotate_left(piece->limits.minimums);
-        rotate_left(piece->limits.maximums);
-        rotate_left(piece->orientation);
-        rotate_left(piece->position);
+        rotate_left(&piece->limits.minimums);
+        rotate_left(&piece->limits.maximums);
+        rotate_left(&piece->orientation);
+        rotate_left(&piece->position);
         swapSorting(piece->limits.minimums.x,piece->limits.maximums.x);
         swapSorting(piece->limits.minimums.y,piece->limits.maximums.y);
         //mise a jour de l'orientation
