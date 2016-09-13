@@ -121,9 +121,34 @@ void *dragon_limit_worker(void *data) {
     return NULL;
 }
 
+void rotate(bool direction,piece_t* piece, xy_t *initial){
+    //left direction
+    if(direction)
+    {
+        rotate_left(piece->limits.minimums);
+        rotate_left(piece->limits.maximums);
+        rotate_left(piece->orientation);
+        rotate_left(piece->position);
+        swapSorting(piece->limits.minimums.x,piece->limits.maximums.x);
+        swapSorting(piece->limits.minimums.y,piece->limits.maximums.y);
+        //mise a jour de l'orientation
+        rotate_left(&initial);
+    }
+}
+
+void swapSorting(int64_t *x1, int64_t *x2){
+    if(*x1 > *x2)
+    {
+        int64_t temp = *x1;
+        *x2 = *x1;
+        *x1 = temp;
+    }
+
+}
 /*
  * Calcule les limites en terme de largeur et de hauteur de
  * la forme du dragon. Requis pour allouer la matrice de dessin.
+ * size represente le nombre d'iteration en puissance de 2 pour la creation de la fractal
  */
 int dragon_limits_pthread(limits_t *limits, uint64_t size, int nb_thread) {
     TODO("dragon_limits_pthread");
@@ -170,54 +195,24 @@ int dragon_limits_pthread(limits_t *limits, uint64_t size, int nb_thread) {
         int res = pthread_join(threads[i],NULL);
         if(res){
             //TODO
+            // goto err
         }
     }
-
+    //fusion des resultats
     master.limits=thread_data[0].piece.limits;
     for(i=0;i<nb_thread-1;i++){
         uint64_t skipped = thread_data[i].end+1;
         xy_t last_orientation = thread_data[i].piece.orientation;
+        //choix du sens de la rotation (limité le nombre maximal de rotation a 2)
         bool left = true;
         if(last_orientation.x==1 && last_orientation.y==-1)
             left = false;
+        //orientation par default
         xy_t initial = {1,1};
-        if(left){
-            while(!equal_orientation(initial,last_orientation)){
-                rotate_left(&thread_data[i+1].piece.limits.minimums);
-                rotate_left(&thread_data[i+1].piece.limits.maximums);
-                rotate_left(&thread_data[i+1].piece.orientation);
-                rotate_left(&thread_data[i+1].piece.position);
-                if(thread_data[i+1].piece.limits.minimums.x>thread_data[i+1].piece.limits.maximums.x){
-                    int64_t tmp = thread_data[i+1].piece.limits.minimums.x;
-                    thread_data[i+1].piece.limits.minimums.x = thread_data[i+1].piece.limits.maximums.x;
-                    thread_data[i+1].piece.limits.maximums.x= tmp;
-                }
-                if(thread_data[i+1].piece.limits.minimums.y>thread_data[i+1].piece.limits.maximums.y){
-                    int64_t tmp = thread_data[i+1].piece.limits.minimums.y;
-                    thread_data[i+1].piece.limits.minimums.y = thread_data[i+1].piece.limits.maximums.y;
-                    thread_data[i+1].piece.limits.maximums.y= tmp;
-                }
-                rotate_left(&initial);
-            }
-        }else{
-            while(!equal_orientation(initial,last_orientation)){
-                rotate_right(&thread_data[i+1].piece.limits.minimums);
-                rotate_right(&thread_data[i+1].piece.limits.maximums);
-                rotate_right(&thread_data[i+1].piece.orientation);
-                rotate_right(&thread_data[i+1].piece.position);
-                if(thread_data[i+1].piece.limits.minimums.x>thread_data[i+1].piece.limits.maximums.x){
-                    int64_t tmp = thread_data[i+1].piece.limits.minimums.x;
-                    thread_data[i+1].piece.limits.minimums.x = thread_data[i+1].piece.limits.maximums.x;
-                    thread_data[i+1].piece.limits.maximums.x= tmp;
-                }
-                if(thread_data[i+1].piece.limits.minimums.y>thread_data[i+1].piece.limits.maximums.y){
-                    int64_t tmp = thread_data[i+1].piece.limits.minimums.y;
-                    thread_data[i+1].piece.limits.minimums.y = thread_data[i+1].piece.limits.maximums.y;
-                    thread_data[i+1].piece.limits.maximums.y= tmp;
-                }
-                rotate_right(&initial);
-            }
-        }
+         while(!equal_orientation(initial,last_orientation)){
+             rotate(left,&thread_data[i+1].piece,&initial);
+         }
+
 
         //translate
         thread_data[i+1].piece.position.x+=thread_data[i].piece.position.x;
