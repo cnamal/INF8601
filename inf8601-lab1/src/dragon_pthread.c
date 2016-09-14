@@ -121,37 +121,48 @@ void *dragon_limit_worker(void *data) {
     return NULL;
 }
 
-void rotate(bool direction,piece_t* piece, xy_t *initial){
-    //left direction
-    if(direction)
-    {
-        rotate_left(&piece->limits.minimums);
-        rotate_left(&piece->limits.maximums);
-        rotate_left(&piece->orientation);
-        rotate_left(&piece->position);
-        swapSorting(piece->limits.minimums.x,piece->limits.maximums.x);
-        swapSorting(piece->limits.minimums.y,piece->limits.maximums.y);
-        //mise a jour de l'orientation
-        rotate_left(&initial);
-    }
-}
-
 void swapSorting(int64_t *x1, int64_t *x2){
     if(*x1 > *x2)
     {
         int64_t temp = *x1;
-        *x2 = *x1;
-        *x1 = temp;
+        *x1 = *x2;
+        *x2 = temp;
     }
 
 }
+
+void rotate(bool direction,piece_t* piece, xy_t *initial){
+    if(direction)
+    {
+        //left direction
+        rotate_left(&piece->limits.minimums);
+        rotate_left(&piece->limits.maximums);
+        rotate_left(&piece->orientation);
+        rotate_left(&piece->position);
+        swapSorting(&piece->limits.minimums.x,&piece->limits.maximums.x);
+        swapSorting(&piece->limits.minimums.y,&piece->limits.maximums.y);
+        //mise a jour de l'orientation
+        rotate_left(initial);
+    }else{
+        //right direction
+        rotate_right(&piece->limits.minimums);
+        rotate_right(&piece->limits.maximums);
+        rotate_right(&piece->orientation);
+        rotate_right(&piece->position);
+        swapSorting(&piece->limits.minimums.x,&piece->limits.maximums.x);
+        swapSorting(&piece->limits.minimums.y,&piece->limits.maximums.y);
+        //mise a jour de l'orientation
+        rotate_right(initial);
+    }
+}
+
+
 /*
  * Calcule les limites en terme de largeur et de hauteur de
  * la forme du dragon. Requis pour allouer la matrice de dessin.
  * size represente le nombre d'iteration en puissance de 2 pour la creation de la fractal
  */
 int dragon_limits_pthread(limits_t *limits, uint64_t size, int nb_thread) {
-    TODO("dragon_limits_pthread");
 
     int ret = 0;
     int i;
@@ -161,6 +172,12 @@ int dragon_limits_pthread(limits_t *limits, uint64_t size, int nb_thread) {
 
     piece_init(&master);
 
+    /*
+     * On pourrait optimiser le code dans le cas où size > nb_thread
+     * en assignant size à nb_thread. Les variables n'étant pas de même types
+     * nous avons choisi de ne pas faire cette optimisation.
+     */
+    
     /* 1. ALlouer de l'espace pour threads et threads_data. */
     threads = malloc(sizeof(pthread_t)*nb_thread);
     thread_data = malloc(sizeof(struct limit_data)*nb_thread);
