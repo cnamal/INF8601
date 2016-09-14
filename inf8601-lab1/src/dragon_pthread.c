@@ -251,7 +251,6 @@ int dragon_limits_pthread(limits_t *limits, uint64_t size, int nb_thread) {
     master.limits=thread_data[0].piece.limits;
     //TODO change for piece_merge
     for(i=0;i<nb_thread-1;i++){
-        uint64_t skipped = thread_data[i].end+1;
         xy_t last_orientation = thread_data[i].piece.orientation;
         //choix du sens de la rotation (limité le nombre maximal de rotation a 2)
         bool left = true;
