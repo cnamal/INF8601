@@ -2,4 +2,6 @@
 src/dragonizer
 
 #Generated output
-dragon.ppm
+*.ppm
+*.log
+*.trs
