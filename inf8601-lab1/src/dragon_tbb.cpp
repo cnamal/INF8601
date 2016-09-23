@@ -53,10 +53,10 @@ public:
     DragonDraw(struct draw_data& data):data(data){
 
     }
-    void operator()(const blocked_range<uint64_t>& r)const{
-        uint64_t start = r.begin();
-        uint64_t end = r.end();
-        uint64_t id = start*data.nb_thread/data.size;
+    void operator()(const blocked_range<int>& r)const{
+        int id = r.begin();
+        uint64_t start = id * data.size / data.nb_thread;
+        uint64_t end = (id + 1) * data.size / data.nb_thread;
         dragon_draw_raw(start,end,data.dragon,data.dragon_width,data.dragon_height,data.limits,id);
     }
 };
@@ -69,8 +69,9 @@ public:
 
     }
     void operator()(const blocked_range<int>& r)const{
-        int start = r.begin();
-        int end = r.end();
+        int id = r.begin();
+        int start = id * data.image_height/data.nb_thread;
+        int end = (id +1)* data.image_height/data.nb_thread;
         scale_dragon(start,end,data.image,data.image_width,data.image_height,data.dragon,data.dragon_width,data.dragon_height,data.palette);
     }
 };
@@ -144,17 +145,16 @@ int dragon_draw_tbb(char **canvas, struct rgb *image, int width, int height, uin
     parallel_for(blocked_range<int>(0,dragon_width*dragon_height),DragonClear{dragon});
 
     /* 3. Dessiner le dragon : DragonDraw */
-    parallel_for(blocked_range<uint64_t>(0,size,size / nb_thread),DragonDraw{data});
+    parallel_for(blocked_range<int>(0,nb_thread),DragonDraw{data});
 
     /* 4. Effectuer le rendu final */
-    parallel_for(blocked_range<int>(0,height,height/nb_thread),DragonRender{data});
+    parallel_for(blocked_range<int>(0,nb_thread),DragonRender{data});
 
     init.terminate();
 
     free_palette(palette);
     FREE(data.tid);
     *canvas = dragon;
-    //*canvas = NULL;
     return 0;
 }
 
