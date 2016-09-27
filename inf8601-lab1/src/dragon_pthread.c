@@ -36,15 +36,16 @@ void *dragon_draw_worker(void *data) {
     uint64_t start = info->id * info->size / info->nb_thread;
     uint64_t end = (info->id + 1) * info->size / info->nb_thread;
     init_canvas(info->id*area/info->nb_thread, (info->id+1)*area/info->nb_thread, info->dragon, -1);
-    //TODO check return
+
     pthread_barrier_wait(info->barrier);
 
     /* 2. Dessiner le dragon */
     dragon_draw_raw(start,end,info->dragon,info->dragon_width,info->dragon_height,info->limits,info->id);
-    //TODO check return
     pthread_barrier_wait(info->barrier);
+
     /* 3. Effectuer le rendu final */
     scale_dragon(info->id*info->image_height/info->nb_thread,(info->id+1)*info->image_height/info->nb_thread,info->image,info->image_width,info->image_height,info->dragon,info->dragon_width,info->dragon_height,info->palette);
+
     return NULL;
 }
 
@@ -68,8 +69,9 @@ int dragon_draw_pthread(char **canvas, struct rgb *image, int width, int height,
         goto err;
 
     /* 1. Initialiser barrier. */
-    //TODO check return value
-    pthread_barrier_init(&barrier,NULL,nb_thread);
+    r = pthread_barrier_init(&barrier,NULL,nb_thread);
+    if(r)
+        goto err;
 
     if (dragon_limits_pthread(&lim, size, nb_thread) < 0)
         goto err;
@@ -117,21 +119,25 @@ int dragon_draw_pthread(char **canvas, struct rgb *image, int width, int height,
         data[i].id=i;
         r=pthread_create(threads+i,NULL,dragon_draw_worker,data+i);
         if(r){
-            //TODO
+            int j;
+            for(j=0;j<i;j++)
+                pthread_join(threads[i],NULL);
+            goto err;
         }
     }
 
     /* 3. Attendre la fin du traitement */
-    for(i=0;i<nb_thread;i++){
-        r = pthread_join(threads[i],NULL);
-        if(r){
-            //TODO
-        }
-    }
+    r=0;
+    for(i=0;i<nb_thread;i++)
+        r |= pthread_join(threads[i],NULL);
+
+    if(r)
+        goto err;
 
     /* 4. Destruction des variables (à compléter). */
-    //TODO check return
-    pthread_barrier_destroy(&barrier);
+    r=pthread_barrier_destroy(&barrier);
+    if(r)
+        goto err;
 
 done:
     FREE(data);
@@ -152,42 +158,6 @@ void *dragon_limit_worker(void *data) {
     return NULL;
 }
 
-void swapSorting(int64_t *x1, int64_t *x2){
-    if(*x1 > *x2)
-    {
-        int64_t temp = *x1;
-        *x1 = *x2;
-        *x2 = temp;
-    }
-
-}
-
-void rotate(bool direction,piece_t* piece, xy_t *initial){
-    if(direction)
-    {
-        //left direction
-        rotate_left(&piece->limits.minimums);
-        rotate_left(&piece->limits.maximums);
-        rotate_left(&piece->orientation);
-        rotate_left(&piece->position);
-        swapSorting(&piece->limits.minimums.x,&piece->limits.maximums.x);
-        swapSorting(&piece->limits.minimums.y,&piece->limits.maximums.y);
-        //mise a jour de l'orientation
-        rotate_left(initial);
-    }else{
-        //right direction
-        rotate_right(&piece->limits.minimums);
-        rotate_right(&piece->limits.maximums);
-        rotate_right(&piece->orientation);
-        rotate_right(&piece->position);
-        swapSorting(&piece->limits.minimums.x,&piece->limits.maximums.x);
-        swapSorting(&piece->limits.minimums.y,&piece->limits.maximums.y);
-        //mise a jour de l'orientation
-        rotate_right(initial);
-    }
-}
-
-
 /*
  * Calcule les limites en terme de largeur et de hauteur de
  * la forme du dragon. Requis pour allouer la matrice de dessin.
@@ -203,16 +173,14 @@ int dragon_limits_pthread(limits_t *limits, uint64_t size, int nb_thread) {
 
     piece_init(&master);
 
-    /*
-     * On pourrait optimiser le code dans le cas où size > nb_thread
-     * en assignant size à nb_thread. Les variables n'étant pas de même types
-     * nous avons choisi de ne pas faire cette optimisation.
-     */
-
     /* 1. ALlouer de l'espace pour threads et threads_data. */
-    //TODO test malloc's return
     threads = malloc(sizeof(pthread_t)*nb_thread);
+    if(threads==NULL)
+        goto err;
+
     thread_data = malloc(sizeof(struct limit_data)*nb_thread);
+    if(thread_data==NULL)
+        goto err;
 
     /* 2. Lancement du calcul en parallèle avec dragon_limit_worker. */
     int remaining_threads = nb_thread;
@@ -232,57 +200,27 @@ int dragon_limits_pthread(limits_t *limits, uint64_t size, int nb_thread) {
     for(i=0;i<nb_thread;i++){
         int res = pthread_create(threads+i,NULL,dragon_limit_worker,thread_data+i);
         if(res){
-            //TODO
-            // Join previous created threads if any
-            // goto err
+            int j;
+            for(j=0;j<i;j++)
+                pthread_join(threads[i],NULL);
+            goto err;
         }
     }
 
     /* 3. Attendre la fin du traitement. */
-    for(i=0;i<nb_thread;i++){
-        int res = pthread_join(threads[i],NULL);
-        if(res){
-            //TODO
-            // goto err
-        }
-    }
+    int res=0;
+    for(i=0;i<nb_thread;i++)
+        res |= pthread_join(threads[i],NULL);
+
+
+    if(res)
+        goto err;
 
     //fusion des resultats
-    master.limits=thread_data[0].piece.limits;
-    //TODO change for piece_merge
-    for(i=0;i<nb_thread-1;i++){
-        xy_t last_orientation = thread_data[i].piece.orientation;
-        //choix du sens de la rotation (limité le nombre maximal de rotation a 2)
-        bool left = true;
-        if(last_orientation.x==1 && last_orientation.y==-1)
-            left = false;
-        //orientation par default
-        xy_t initial = {1,1};
-         while(!equal_orientation(initial,last_orientation)){
-             rotate(left,&thread_data[i+1].piece,&initial);
-         }
+    master=thread_data[0].piece;
 
-
-        //translate
-        thread_data[i+1].piece.position.x+=thread_data[i].piece.position.x;
-        thread_data[i+1].piece.position.y+=thread_data[i].piece.position.y;
-        thread_data[i+1].piece.limits.minimums.x+=thread_data[i].piece.position.x;
-        thread_data[i+1].piece.limits.minimums.y+=thread_data[i].piece.position.y;
-        thread_data[i+1].piece.limits.maximums.x+=thread_data[i].piece.position.x;
-        thread_data[i+1].piece.limits.maximums.y+=thread_data[i].piece.position.y;
-
-        if(thread_data[i+1].piece.limits.minimums.x < master.limits.minimums.x)
-            master.limits.minimums.x=thread_data[i+1].piece.limits.minimums.x;
-
-        if(thread_data[i+1].piece.limits.minimums.y < master.limits.minimums.y)
-            master.limits.minimums.y=thread_data[i+1].piece.limits.minimums.y;
-
-        if(master.limits.maximums.x < thread_data[i+1].piece.limits.maximums.x)
-            master.limits.maximums.x=thread_data[i+1].piece.limits.maximums.x;
-
-        if(master.limits.maximums.y < thread_data[i+1].piece.limits.maximums.y)
-            master.limits.maximums.y=thread_data[i+1].piece.limits.maximums.y;
-    }
+    for(i=1;i<nb_thread;i++)
+        piece_merge(&(master),thread_data[i].piece);
 
 
 done:
