@@ -17,6 +17,8 @@ extern "C" {
 #include "tbb/tbb.h"
 #include "TidMap.h"
 
+#define STATS 0
+
 using namespace std;
 using namespace tbb;
 class DragonLimits {
@@ -53,10 +55,14 @@ public:
 
     }
     void operator()(const blocked_range<uint64_t >& r)const{
+
+#if STATS
 	int pos;
 	pos = tidMap->getIdFromTid(gettid());
 	if(pos >= 0)
 		data.tid[pos]++;
+#endif
+
         if(data.size< static_cast<uint64_t>(data.nb_thread)){
             for(uint64_t i=r.begin()*static_cast<uint64_t>(data.nb_thread)/data.size;i<r.end()*static_cast<uint64_t>(data.nb_thread)/data.size;i++){
                 uint64_t start = i * data.size / data.nb_thread;
@@ -176,6 +182,7 @@ int dragon_draw_tbb(char **canvas, struct rgb *image, int width, int height, uin
 
     /* 3. Dessiner le dragon : DragonDraw */
     parallel_for(blocked_range<uint64_t>(0,size),DragonDraw{data,&tidMap});
+#if STATS
     tidMap.dump();
     cout << "-------------" << endl;
     int k;
@@ -184,6 +191,8 @@ int dragon_draw_tbb(char **canvas, struct rgb *image, int width, int height, uin
 	somme+= data.tid[k];
     }
     cout << somme << endl;
+#endif
+
     /* 4. Effectuer le rendu final */
     parallel_for(blocked_range<int>(0,height),DragonRender{data});
 
