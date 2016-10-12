@@ -5,3 +5,6 @@ src/dragonizer
 *.ppm
 *.log
 *.trs
+results/
+
+INF8601-lab1-A16.odt
