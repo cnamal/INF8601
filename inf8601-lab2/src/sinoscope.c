@@ -160,6 +160,11 @@ static int close_lib(struct command_opts *opts)
 	return 0;
 }
 
+static struct command_opts* global_opts;
+static void close_global_opts(){
+	close_lib(global_opts);
+}
+
 static int cmd_gui(struct command_opts *opts)
 {
 	int ret = 0;
@@ -170,6 +175,8 @@ static int cmd_gui(struct command_opts *opts)
 	init_lib(opts);
 	ERR_THROW(0, ret, "init_lib error");
 
+	global_opts = opts;
+	atexit(close_global_opts);
 	run_gui(0, NULL);
 	close_lib(opts);
 
