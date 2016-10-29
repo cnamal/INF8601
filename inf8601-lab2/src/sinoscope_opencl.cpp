@@ -31,6 +31,8 @@ static cl_program prog = NULL;
 static cl_kernel kernel = NULL;
 
 static cl_mem output = NULL;
+static cl_mem sino = NULL;
+
 
 int get_opencl_queue()
 {
@@ -84,6 +86,7 @@ int get_opencl_queue()
     queue = clCreateCommandQueue(context, device, 0, &ret);
     ERR_THROW(CL_SUCCESS, ret, "failed to create queue");
 
+
     ret = 0;
 
 done:
@@ -131,11 +134,13 @@ error:
 
 int create_buffer(int width, int height)
 {
-    /*
-     * TODO: initialiser la memoire requise avec clCreateBuffer()
-     */
     cl_int ret = 0;
-    goto error;
+    output = clCreateBuffer(context,CL_MEM_WRITE_ONLY, 3*sizeof(unsigned char)* width*height, NULL, &ret);
+    if(ret!=CL_SUCCESS)
+        goto error;
+    sino = clCreateBuffer(context,CL_MEM_READ_ONLY ,sizeof(sinoscope_t), NULL, &ret);
+    if(ret!=CL_SUCCESS)
+        goto error;
 done:
     return ret;
 error:
@@ -179,39 +184,40 @@ void opencl_shutdown()
 {
     if (queue) 	clReleaseCommandQueue(queue);
     if (context)	clReleaseContext(context);
+    if (prog) clReleaseProgram(prog);
+    if (kernel) clReleaseKernel(kernel);
 
-    /*
-     * TODO: liberer les ressources allouees
-     */
+    if(output) clReleaseMemObject(output);
+    if(sino) clReleaseMemObject(sino);
 }
 
 int sinoscope_image_opencl(sinoscope_t *ptr)
 {
-    //TODO("sinoscope_image_opencl");
-    /*
-     * TODO: Executer le noyau avec la fonction run_kernel().
-     *
-     *       1. Passer les arguments au noyau avec clSetKernelArg(). Si des
-     *          arguments sont passees par un tampon, copier les valeurs avec
-     *          clEnqueueWriteBuffer() de maniere synchrone.
-     *
-     *       2. Appeller le noyau avec clEnqueueNDRangeKernel(). L'argument
-     *          work_dim de clEnqueueNDRangeKernel() est un tableau size_t
-     *          avec les dimensions width et height.
-     *
-     *       3. Attendre que le noyau termine avec clFinish()
-     *
-     *       4. Copier le resultat dans la structure sinoscope_t avec
-     *          clEnqueueReadBuffer() de maniere synchrone
-     *
-     *       Utilisez ERR_THROW partout pour gerer systematiquement les exceptions
-     */
-
     cl_int ret = 0;
-    cl_event ev;
+
+    size_t tab[2] = {(size_t)ptr->width,(size_t) ptr->height};
 
     if (ptr == NULL)
         goto error;
+
+    ret = clEnqueueWriteBuffer(queue,sino,CL_TRUE,0,sizeof(sinoscope_t),ptr,0,NULL,NULL);
+    ERR_THROW(CL_SUCCESS,ret,"Enqueue write buffer failed");
+
+
+    ret = clSetKernelArg(kernel,0,sizeof(cl_mem),&output);
+    ERR_THROW(CL_SUCCESS,ret,"Set kernel argument output failed");
+
+    ret = clSetKernelArg(kernel,1,sizeof(cl_mem),&sino);
+    ERR_THROW(CL_SUCCESS,ret,"Set kernel argument ptr failed");
+
+    ret = clEnqueueNDRangeKernel(queue,kernel,2,0,tab,NULL,0,NULL,NULL);
+    ERR_THROW(CL_SUCCESS,ret,"NDRange failed");
+
+    ret = clFinish(queue);
+    ERR_THROW(CL_SUCCESS,ret,"Finish failed");
+
+    ret = clEnqueueReadBuffer(queue,output,CL_TRUE,0,3*sizeof(unsigned char)*ptr->width*ptr->height,ptr->buf,0,NULL,NULL);
+    ERR_THROW(CL_SUCCESS,ret,"Enqueue read buffer failed");
 
 done:
     return ret;
