@@ -200,6 +200,7 @@ int sinoscope_image_opencl(sinoscope_t *ptr)
     if (ptr == NULL)
         goto error;
 
+    //Give sinoscope to GPU
     ret = clEnqueueWriteBuffer(queue,sino,CL_TRUE,0,sizeof(sinoscope_t),ptr,0,NULL,NULL);
     ERR_THROW(CL_SUCCESS,ret,"Enqueue write buffer failed");
 
@@ -216,6 +217,7 @@ int sinoscope_image_opencl(sinoscope_t *ptr)
     ret = clFinish(queue);
     ERR_THROW(CL_SUCCESS,ret,"Finish failed");
 
+    //Read result
     ret = clEnqueueReadBuffer(queue,output,CL_TRUE,0,3*sizeof(unsigned char)*ptr->width*ptr->height,ptr->buf,0,NULL,NULL);
     ERR_THROW(CL_SUCCESS,ret,"Enqueue read buffer failed");
 
