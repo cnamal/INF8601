@@ -196,7 +196,7 @@ void free_ctx(ctx_t *ctx) {
 }
 
 int init_ctx(ctx_t *ctx, opts_t *opts) {
-    TODO("lab3");
+
     MPI_Comm_size(MPI_COMM_WORLD, &ctx->numprocs);
     MPI_Comm_rank(MPI_COMM_WORLD, &ctx->rank);
 
@@ -215,50 +215,66 @@ int init_ctx(ctx_t *ctx, opts_t *opts) {
     grid_t *new_grid = NULL;
 
     /* FIXME: create 2D cartesian communicator */
+    MPI_Cart_create(MPI_COMM_WORLD,DIM_2D,ctx->dims,ctx->isperiodic,ctx->reorder,&ctx->comm2d);
 
     /*
      * FIXME: le processus rank=0 charge l'image du disque
      * et transfert chaque section aux autres processus
      */
 
-    /* load input image */
-    image_t *image = load_png(opts->input);
-    if (image == NULL)
-        goto err;
+    if(ctx->rank==0){
+        /* load input image */
+        image_t *image = load_png(opts->input);
+        if (image == NULL)
+            goto err;
 
-    /* select the red channel as the heat source */
-    ctx->global_grid = grid_from_image(image, CHAN_RED);
+        /* select the red channel as the heat source */
+        ctx->global_grid = grid_from_image(image, CHAN_RED);
 
-    /* grid is normalized to one, multiply by MAX_TEMP */
-    grid_multiply(ctx->global_grid, MAX_TEMP);
+        /* grid is normalized to one, multiply by MAX_TEMP */
+        grid_multiply(ctx->global_grid, MAX_TEMP);
 
-    /* 2D decomposition */
-    ctx->cart = make_cart2d(ctx->global_grid->width,
-            ctx->global_grid->height, opts->dimx, opts->dimy);
-    cart2d_grid_split(ctx->cart, ctx->global_grid);
+        /* 2D decomposition */
+        ctx->cart = make_cart2d(ctx->global_grid->width,
+                ctx->global_grid->height, opts->dimx, opts->dimy);
+        cart2d_grid_split(ctx->cart, ctx->global_grid);
 
-    /*
-     * FIXME: send grid dimensions and data
-     * Comment traiter le cas de rank=0 ?
-     */
+        /*
+         * FIXME: send grid dimensions and data
+         * Comment traiter le cas de rank=0 ?
+         */
+        int x,y;
+        for(y=0;y<ctx->dims[1];y++){
+            for(x=0;x<ctx->dims[0];x++){
+                int width = ctx->cart->dims[0][x];
+                int height = ctx->cart->dims[1][y];
+                MPI_Send(&(width),1,MPI_INTEGER,IX2(x,y,ctx->dims[0]),0,ctx->comm2d);
+                MPI_Send(&(height),1,MPI_INTEGER,IX2(x,y,ctx->dims[0]),1,ctx->comm2d);
+                MPI_Send(cart2d_get_grid(ctx->cart,x,y)->dbl,width*height,MPI_DOUBLE,IX2(x,y,ctx->dims[0]),2,ctx->comm2d);
+            }
+        }
+    }
 
     /*
      * FIXME: receive dimensions of the grid
      * store into new_grid
      */
-
-    /* Utilisation temporaire de global_grid */
-    new_grid = ctx->global_grid;
-
-    if (new_grid == NULL)
+    int width,height;
+    MPI_Recv(&width,1,MPI_INTEGER,0,0,ctx->comm2d,MPI_STATUS_IGNORE);
+    MPI_Recv(&height,1,MPI_INTEGER,0,1,ctx->comm2d,MPI_STATUS_IGNORE);
+    new_grid = make_grid(width,height,0);
+    if(new_grid == NULL)
         goto err;
+    MPI_Recv(new_grid->dbl,width*height,MPI_DOUBLE,0,2,ctx->comm2d,MPI_STATUS_IGNORE);
+
     /* set padding required for Runge-Kutta */
     ctx->curr_grid = grid_padding(new_grid, 1);
     ctx->next_grid = grid_padding(new_grid, 1);
     ctx->heat_grid = grid_padding(new_grid, 1);
-    //free_grid(new_grid);
+    free_grid(new_grid);
 
     /* FIXME: create type vector to exchange columns */
+    MPI_Type_vector(height,1,width,MPI_DOUBLE,&(ctx->vector));
 
     return 0;
 err: return -1;
