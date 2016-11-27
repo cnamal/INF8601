@@ -331,7 +331,7 @@ void exchng2d(ctx_t *ctx) {
 int gather_result(ctx_t *ctx, opts_t *opts) {
 
     int ret = 0;
-    grid_t *local_grid = grid_padding(ctx->curr_grid, 0);
+    grid_t *local_grid = grid_padding(ctx->next_grid, 0);
     if (local_grid == NULL)
         goto err;
 
