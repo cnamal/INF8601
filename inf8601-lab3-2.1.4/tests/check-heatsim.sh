@@ -27,3 +27,17 @@ do_run 6 1 6
 do_run 6 6 1
 do_run 6 2 3
 do_run 6 3 2
+
+diff simple_1_1_1.png simple_2_2_1.png
+diff simple_1_1_1.png simple_2_1_2.png
+diff simple_1_1_1.png simple_3_3_1.png
+diff simple_1_1_1.png simple_3_1_3.png
+diff simple_1_1_1.png simple_4_4_1.png
+diff simple_1_1_1.png simple_4_1_4.png
+diff simple_1_1_1.png simple_4_2_2.png
+diff simple_1_1_1.png simple_5_1_5.png
+diff simple_1_1_1.png simple_5_5_1.png
+diff simple_1_1_1.png simple_6_1_6.png
+diff simple_1_1_1.png simple_6_6_1.png
+diff simple_1_1_1.png simple_6_2_3.png
+diff simple_1_1_1.png simple_6_3_2.png
